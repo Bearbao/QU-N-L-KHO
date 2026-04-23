@@ -520,23 +520,37 @@ function openScan() {
 
   if (!scanner) scanner = new Html5Qrcode(targetId, /* verbose */ false);
 
-  Html5Qrcode.getCameras().then((devices) => {
-    if (!devices || devices.length === 0) throw new Error("No camera");
-    const camId = devices[0].id;
-    return scanner.start(
-      camId,
-      config,
-      (decodedText) => {
-        const skuInput = document.getElementById("act-sku");
-        skuInput.value = String(decodedText || "").trim().toUpperCase();
-        skuInput.dispatchEvent(new Event("input", { bubbles: true }));
-        closeScan();
-      }
-    );
-  }).catch((e) => {
+  const onScanSuccess = (decodedText) => {
+    const skuInput = document.getElementById("act-sku");
+    skuInput.value = String(decodedText || "").trim().toUpperCase();
+    skuInput.dispatchEvent(new Event("input", { bubbles: true }));
+    closeScan();
+  };
+
+  const onScanError = (e) => {
     console.error("Không thể mở camera:", e);
     alert("Không thể mở camera để scan. Vui lòng kiểm tra quyền camera/trình duyệt.");
     closeScan();
+  };
+
+  // Ưu tiên camera sau trên điện thoại.
+  scanner.start(
+    { facingMode: { exact: "environment" } },
+    config,
+    onScanSuccess
+  ).catch(() => {
+    scanner.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess
+    ).catch(() => {
+      Html5Qrcode.getCameras().then((devices) => {
+        if (!devices || devices.length === 0) throw new Error("No camera");
+        const rearCam = devices.find((d) => /back|rear|environment|sau/i.test(d.label || ""));
+        const camId = (rearCam || devices[0]).id;
+        return scanner.start(camId, config, onScanSuccess);
+      }).catch(onScanError);
+    });
   });
 }
 

@@ -135,6 +135,20 @@
   }
   .modal-body { padding: 14px; }
   #barcode-reader { width: 100%; }
+  .scan-controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .scan-controls select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--rule);
+    background: white;
+    font-family: "JetBrains Mono";
+    font-size: 12px;
+  }
 
   @media (max-width: 960px) {
     .quick-action { grid-template-columns: 1fr; }
@@ -155,6 +169,10 @@
     <div class="modal-body">
       <div style="font-family:'JetBrains Mono'; font-size: 12px; color: var(--muted); margin-bottom: 10px;">
         Cho camera thấy rõ mã vạch. Khi quét được sẽ tự điền vào ô SKU.
+      </div>
+      <div class="scan-controls">
+        <select id="cameraSelect"></select>
+        <button class="btn-scan" type="button" onclick="startScanFromSelectedCamera()">BẮT ĐẦU QUÉT</button>
       </div>
       <div id="barcode-reader"></div>
     </div>
@@ -251,6 +269,7 @@ const PENDING_CACHE_KEY = "warehouse_pending_moves_v1";
 
 let state = { items: [], moves: [], pendingMoves: [] };
 let scanner = null;
+let availableCameras = [];
 
 function normalizeMove(raw) {
   return {
@@ -509,12 +528,42 @@ async function handleTransaction() {
 function openScan() {
   const backdrop = document.getElementById("scanBackdrop");
   backdrop.style.display = "flex";
+  loadCameraOptions();
+}
+
+function loadCameraOptions() {
+  const select = document.getElementById("cameraSelect");
+  select.innerHTML = `<option value="">Đang tải danh sách camera...</option>`;
+
+  Html5Qrcode.getCameras().then((devices) => {
+    if (!devices || devices.length === 0) throw new Error("No camera");
+    availableCameras = devices;
+    select.innerHTML = devices.map((d, idx) => {
+      const label = (d.label && d.label.trim()) ? d.label.trim() : `Camera ${idx + 1}`;
+      return `<option value="${d.id}">${label}</option>`;
+    }).join("");
+
+    const rearCam = devices.find((d) => /back|rear|environment|sau/i.test(d.label || ""));
+    select.value = rearCam ? rearCam.id : devices[0].id;
+  }).catch((e) => {
+    console.error("Không lấy được danh sách camera:", e);
+    availableCameras = [];
+    select.innerHTML = `<option value="">Không lấy được camera</option>`;
+  });
+}
+
+function startScanFromSelectedCamera() {
+  const select = document.getElementById("cameraSelect");
+  const cameraId = select.value;
+  if (!cameraId) {
+    alert("Không có camera khả dụng để quét.");
+    return;
+  }
 
   const targetId = "barcode-reader";
   const config = {
     fps: 12,
     qrbox: { width: 300, height: 160 },
-    // Luôn chọn lại camera để tránh bị dính camera trước từ lần quét cũ.
     rememberLastUsedCamera: false,
     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
   };
@@ -534,21 +583,47 @@ function openScan() {
     closeScan();
   };
 
-  Html5Qrcode.getCameras().then((devices) => {
-    if (!devices || devices.length === 0) throw new Error("No camera");
-    const rearCam = devices.find((d) => /back|rear|environment|sau/i.test(d.label || ""));
-    // Nhiều thiết bị trả camera sau ở vị trí cuối danh sách.
-    const preferredCam = rearCam || devices[devices.length - 1];
-    return scanner.start(preferredCam.id, config, onScanSuccess);
-  }).catch(() => {
-    // Fallback cuối cùng nếu trình duyệt không cung cấp danh sách camera rõ ràng.
-    scanner.start(
-      { facingMode: { exact: "environment" } },
+  const startSelected = () => scanner.start(
+      cameraId,
       config,
       onScanSuccess
     ).catch(onScanError);
-  });
+
+  if (scanner.isScanning) {
+    scanner.stop().then(startSelected).catch(onScanError);
+  } else {
+    startSelected();
+  }
 }
+
+document.getElementById("cameraSelect").addEventListener("change", () => {
+  const backdrop = document.getElementById("scanBackdrop");
+  if (backdrop.style.display !== "flex") return;
+  if (scanner && scanner.isScanning) {
+    startScanFromSelectedCamera();
+  }
+});
+
+document.getElementById("scanBackdrop").addEventListener("click", (e) => {
+  if (e.target.id === "scanBackdrop") {
+    closeScan();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const backdrop = document.getElementById("scanBackdrop");
+    if (backdrop.style.display === "flex") closeScan();
+  }
+});
+
+// Bật quét nhanh bằng Enter khi đang ở modal scan.
+document.getElementById("cameraSelect").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    startScanFromSelectedCamera();
+  }
+});
 
 function closeScan() {
   const backdrop = document.getElementById("scanBackdrop");

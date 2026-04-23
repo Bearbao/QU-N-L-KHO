@@ -1,276 +1,448 @@
+<!DOCTYPE html>
 <html lang="vi"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quản lý kho Plus · v2.9 FULL CHÚ THÍCH</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-<script src="https://unpkg.com/html5-qrcode"></script>
-
+<title>Quản lý kho Plus · v2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
 <style>
-  :root { 
-    --paper: #f0f2f4; --paper-2: #e6e2d4; --ink: #1c1b17;
-    --muted: #8a8579; --rule: #c9c3b2; --accent: #6a5b1f;
-    --good: #3f6b3c; --bad: #8c2f24; --scan: #2b50a0;
+  :root {
+    --paper: #f0f2f4;
+    --paper-2: #e6e2d4;
+    --ink: #1c1b17;
+    --ink-soft: #4a4740;
+    --muted: #8a8579;
+    --rule: #c9c3b2;
+    --accent: #6a5b1f;
+    --accent-2: #a07b2b;
+    --good: #3f6b3c;
+    --warn: #a8551e;
+    --bad: #8c2f24;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: "Instrument Sans", sans-serif; }
-  
-  /* HIỆU ỨNG: Lớp nhám bề mặt cho giao diện trông chuyên nghiệp */
-  .grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.5; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
-  
-  header.top { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-end; padding: 30px 40px; border-bottom: 1px solid var(--rule); }
-  .brand h1 { font-family: "Instrument Serif", serif; font-style: italic; font-size: 50px; margin: 0; line-height: 1; }
-  
-  main { position: relative; z-index: 2; padding: 30px 40px; display: grid; gap: 25px; }
-
-  /* KHU VỰC NHẬP LIỆU: Bố trí các ô nhập và nút bấm */
-  .quick-action-wrapper {
-    background: rgba(255,255,255,0.4); border: 1px solid var(--accent); padding: 20px;
-    display: grid; grid-template-columns: repeat(3, 1fr) 0.8fr 1.2fr auto auto; gap: 15px; align-items: end;
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(160,123,43,0.08), transparent 45%),
+      radial-gradient(circle at 90% 90%, rgba(106,91,31,0.05), transparent 40%);
   }
-  .input-group { display: flex; flex-direction: column; gap: 8px; }
-  .input-group label { font-size: 11px; font-weight: bold; text-transform: uppercase; color: var(--accent); letter-spacing: 1px; }
-  .quick-action-wrapper input, .quick-action-wrapper select { padding: 12px; border: 1px solid var(--rule); font-family: "JetBrains Mono"; border-radius: 4px; width: 100%; }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity: 0.6;
+    mix-blend-mode: multiply;
+  }
+  header.top {
+    position: relative; z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    padding: 28px 40px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .brand .mark {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .brand h1 {
+    font-family: "Instrument Serif", serif;
+    font-style: italic; font-weight: 400;
+    font-size: clamp(34px, 4vw, 54px);
+    line-height: 1; margin: 2px 0 0;
+  }
+  .top-meta { display: flex; gap: 22px; font-family: "JetBrains Mono", monospace; font-size: 11px; text-transform: uppercase; }
   
-  /* NÚT BẤM: Xác nhận và Scan */
-  .btn-submit { background: var(--accent); color: white; border: none; padding: 0 20px; cursor: pointer; font-weight: 600; border-radius: 4px; height: 45px; }
-  .btn-scan { background: var(--scan); color: white; border: none; padding: 0 20px; cursor: pointer; font-weight: 600; border-radius: 4px; height: 45px; display: flex; align-items: center; gap: 5px; }
-  .btn-submit:hover, .btn-scan:hover { opacity: 0.8; }
+  main { position: relative; z-index: 2; padding: 28px 40px 80px; display: grid; gap: 24px; }
 
-  /* KPI: 4 ô hiển thị số liệu tổng quát */
+  .quick-action {
+    background: rgba(255,255,255,0.4);
+    border: 1px solid var(--accent);
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .quick-action input, .quick-action select {
+    padding: 10px; border: 1px solid var(--rule); background: white; font-family: "JetBrains Mono"; font-size: 13px;
+    width: 100%; outline: none;
+  }
+  .btn-submit {
+    background: var(--accent); color: white; border: none; padding: 10px 24px;
+    cursor: pointer; font-family: "JetBrains Mono"; font-weight: 600; transition: 0.2s;
+  }
+  .btn-submit:hover { background: var(--accent-2); }
+  .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
+
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 10px solid var(--rule); }
-  .kpi { padding: 25px; border-right: 1px solid var(--rule); background: rgba(255,255,255,0.2); }
-  .kpi .value { font-size: 60px; line-height: 1; font-weight: 600; margin-top: 10px; }
-
-  .panels { display: grid; grid-template-columns: 1.2fr 1.2fr 0.8fr; gap: 20px; }
-  .panel { border: 1px solid var(--rule); background: rgba(255,255,255,0.35); border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
+  .kpi { padding: 22px; border-right: 1px solid var(--rule); background: rgba(255,255,255,0.2); }
+  .kpi .value { font-size: 60px; line-height: 1; font-weight: 500; }
+  .panels { display: grid; grid-template-columns: 1.55fr 1fr; gap: 24px; }
+  .panel { border: 1px solid var(--rule); background: rgba(255,255,255,0.35); display: flex; flex-direction: column; }
   
-  /* BẢNG TỒN KHO CHI TIẾT */
-  table { width: 100%; border-collapse: collapse; font-family: "JetBrains Mono"; font-size: 13px; }
-  thead th { background: var(--paper-2); padding: 12px; text-align: left; border-bottom: 1px solid var(--rule); position: sticky; top: 0; }
-  tbody td { padding: 12px; border-bottom: 1px dashed var(--rule); }
-
-  /* HOẠT ĐỘNG: Lịch sử nhập xuất */
-  .move-item { position: relative; padding: 15px; border-bottom: 1px dashed var(--rule); font-family: "JetBrains Mono"; font-size: 12px; }
-  .btn-del-act { position: absolute; right: 10px; top: 15px; color: var(--bad); cursor: pointer; border: none; background: none; font-size: 18px; opacity: 0.4; }
+  table { width: 100%; border-collapse: collapse; font-family: "JetBrains Mono"; font-size: 12.5px; }
+  thead th { background: var(--paper-2); padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--rule); position: sticky; top: 0; }
+  tbody td { padding: 10px; border-bottom: 1px dashed var(--rule); }
   
-  /* CAMERA: Vùng hiển thị khi quét mã */
-  #reader { width: 100%; max-width: 500px; margin: 0 auto; display: none; border: 5px solid var(--accent); margin-bottom: 10px; }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 10px; border: 1px solid var(--rule); font-weight: 600; }
+  .pill.hot { color: var(--bad); border-color: var(--bad); background: rgba(140, 47, 36, 0.1); }
+  .pill.ok { color: var(--good); border-color: var(--good); background: rgba(63, 107, 60, 0.1); }
+
+  .move-item { padding: 12px; border-bottom: 1px solid var(--rule); transition: 0.3s; }
+  .move-item:hover { background: rgba(255,255,255,0.5); }
+  .move-meta { display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+  .move-body { font-size: 13px; }
+  .type-tag { font-weight: 800; margin-right: 4px; }
+  .type-IN { color: var(--good); }
+  .type-OUT { color: var(--bad); }
+
+  @media (max-width: 960px) {
+    .quick-action { grid-template-columns: 1fr; }
+    .panels { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
 <div class="grain"></div>
+
 <header class="top">
-  <div class="brand"><div style="font-size: 11px; letter-spacing: 2px;">HỆ THỐNG QUẢN TRỊ</div><h1>Kho vận <em>/ Operations</em></h1></div>
-  <div style="font-family: 'JetBrains Mono'; font-size: 13px;">Cập nhật: <span id="lastUpdate" style="font-weight:bold;">--:--</span></div>
+  <div class="brand">
+    <div class="mark">Hệ thống kho</div>
+    <h1>BẢN TỒN KHO</h1>
+  </div>
+  <div class="top-meta">
+    <span>Cập nhật: <b id="lastUpdate">Đang kết nối...</b></span>
+  </div>
 </header>
 
 <main>
-  <div id="reader"></div>
-
-  <section class="quick-action-wrapper">
-    <div class="input-group"><label>Mã SKU</label><input type="text" id="act-sku" placeholder="Nhập hoặc quét..." oninput="autoFillInfo()"></div>
-    <div class="input-group"><label>Người làm</label><input type="text" id="act-user" placeholder="Tên..."></div>
-    <div class="input-group"><label>Vị trí</label><input type="text" id="act-loc" placeholder="Kệ..."></div>
-    <div class="input-group"><label>Số lượng</label><input type="number" id="act-qty" placeholder="SL"></div>
-    <div class="input-group"><label>Xuất Nhập Kho</label>
+  <section class="panel">
+    <header style="padding: 14px 18px; border-bottom: 1px solid var(--rule);">
+      <h2 style="margin:0; font-family: 'Instrument Serif';">XUẤT NHẬP KHO NHANH</h2>
+    </header>
+    <div class="quick-action">
+      <input type="text" id="act-sku" placeholder="Mã SKU (D5032...)">
+      <input type="number" id="act-qty" placeholder="Số lượng">
+      <input type="text" id="act-loc" placeholder="Vị trí">
+      <input type="text" id="act-user" placeholder="Người thực hiện">
       <select id="act-type">
         <option value="IN">NHẬP KHO (+)</option>
         <option value="OUT">XUẤT KHO (-)</option>
       </select>
+      <button class="btn-submit" id="btnSubmit" onclick="handleTransaction()">XÁC NHẬN</button>
     </div>
-    <button class="btn-scan" onclick="startScan()">📷 SCAN</button>
-    <button class="btn-submit" onclick="handleTransaction()">XÁC NHẬN</button>
   </section>
 
   <section class="kpis">
-    <div class="kpi"><div class="label">SKU</div><div id="kpi-sku" class="value">0</div></div>
-    <div class="kpi"><div class="label">Tổng Tồn</div><div id="kpi-stock" class="value">0</div></div>
-    <div class="kpi"><div class="label">Cảnh báo</div><div id="kpi-low" class="value" style="color:orange">0</div></div>
-    <div class="kpi"><div class="label">Hết hàng</div><div id="kpi-out" class="value" style="color:var(--bad)">0</div></div>
-  </section>
-
-  <section class="panels">
-    <div class="panel">
-      <div style="padding:15px; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; align-items:center;">
-        <b>TỒN KHO CHI TIẾT</b>
-        <input type="text" id="q" placeholder="Lọc..." style="padding:4px; width:80px;">
-      </div>
-      <div style="height: 450px; overflow-y: auto;">
-        <table><thead><tr><th>SKU</th><th>VỊ TRÍ</th><th>TỒN</th></tr></thead><tbody id="rows"></tbody></table>
-      </div>
+    <div class="kpi">
+      <div class="label">Tổng SKU</div>
+      <div class="value" id="kpi-sku">0</div>
     </div>
-
-    <div class="panel">
-      <div style="padding:15px; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; align-items:center;">
-        <b>THỐNG KÊ VỊ TRÍ</b>
-        <input type="date" id="chartDate" onchange="updateChart()" style="padding:4px; font-family:monospace;">
-      </div>
-      <div style="height:400px; padding:20px;"><canvas id="locationChart"></canvas></div>
+    <div class="kpi">
+      <div class="label">Tổng Tồn</div>
+      <div class="value" id="kpi-stock">0</div>
     </div>
-
-    <div class="panel">
-      <div style="padding:15px; border-bottom:1px solid var(--rule); font-weight:bold;">HOẠT ĐỘNG</div>
-      <div id="moveList" style="height: 450px; overflow-y: auto;"></div>
+    <div class="kpi">
+      <div class="label">Sắp hết</div>
+      <div class="value" id="kpi-low" style="color: var(--warn);">0</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Hết hàng</div>
+      <div class="value" id="kpi-out" style="color: var(--bad);">0</div>
     </div>
   </section>
+
+  <div class="panels">
+    <section class="panel">
+      <header style="padding: 14px 18px; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin:0; font-family: 'Instrument Serif';">Danh mục tồn kho</h2>
+        <input type="text" id="q" placeholder="Tìm SKU hoặc Tên..." style="font-family: 'JetBrains Mono'; padding: 6px 12px; border: 1px solid var(--rule);">
+      </header>
+      <div style="max-height: 600px; overflow-y: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Sản phẩm</th>
+              <th>Vị trí</th>
+              <th>Tồn</th>
+              <th>Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="5" style="text-align:center; padding: 40px;">Đang tải dữ liệu kho...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header style="padding: 14px 18px; border-bottom: 1px solid var(--rule);">
+        <h2 style="margin:0; font-family: 'Instrument Serif';">Nhật ký hoạt động</h2>
+      </header>
+      <div id="moveList" style="max-height: 600px; overflow-y: auto;">
+        <div style="padding: 20px; text-align: center; color: var(--muted);">Đang nạp nhật ký...</div>
+      </div>
+    </section>
+  </div>
 </main>
 
 <script>
-// LIÊN KẾT: Đường dẫn API kết nối Google Sheets của bạn
 const API = "https://script.google.com/macros/s/AKfycbyRIsCr-6vHgoJEf0m2ikHfcxjHz0LfkQ91Q8qtEoOj6owdi-44HVxVaF6AD6HIM_aA/exec";
-let state = { items: [], moves: [] };
-let myChart = null;
-Chart.register(ChartDataLabels);
+const MOVE_CACHE_KEY = "warehouse_moves_cache_v1";
 
-// --- 1. CHỨC NĂNG QUÉT MÃ (SCAN) ---
-let html5QrCode;
-function startScan() {
-  const reader = document.getElementById('reader');
-  reader.style.display = 'block';
-  html5QrCode = new Html5Qrcode("reader");
-  html5QrCode.start(
-    { facingMode: "environment" }, // Ưu tiên dùng camera sau
-    { fps: 10, qrbox: { width: 250, height: 150 } },
-    (decodedText) => {
-      document.getElementById('act-sku').value = decodedText;
-      autoFillInfo(); // Tự tìm vị trí kệ ngay sau khi quét được mã
-      stopScan();
-    },
-    (errorMessage) => {}
-  ).catch(err => { alert("Lỗi camera: Hãy cho phép trang web truy cập máy ảnh."); });
+let state = { items: [], moves: [], pendingMoves: [] };
+
+function normalizeMove(raw) {
+  return {
+    timestamp: raw.timestamp || raw.Thời_gian || raw.time || "Vừa xong",
+    user: raw.user || raw.Người_nhập || raw.by || "---",
+    sku: raw.sku || raw.SKU || "N/A",
+    qty: String(raw.qty || raw.SL || 0),
+    type: raw.type === "IN" || raw.type === "OUT"
+      ? raw.type
+      : ((raw.Loại || "").toUpperCase().includes("NHẬP") ? "IN" : "OUT"),
+    location: raw.location || raw.Vị_trí || raw.loc || "Kho"
+  };
 }
 
-function stopScan() {
-  if(html5QrCode) {
-    html5QrCode.stop().then(() => {
-      document.getElementById('reader').style.display = 'none';
-    });
+function getMoveKey(m) {
+  return [m.timestamp, m.user, m.sku, m.qty, m.type, m.location].join("|");
+}
+
+function getMoveCoreKey(m) {
+  return [m.user, m.sku, m.qty, m.type, m.location].join("|");
+}
+
+function hasStableTimestamp(ts) {
+  const v = String(ts || "").trim();
+  return v !== "" && v !== "Vừa xong" && v !== "Đang đợi xử lý...";
+}
+
+function saveMovesCache() {
+  try {
+    localStorage.setItem(MOVE_CACHE_KEY, JSON.stringify(state.moves.slice(-500)));
+  } catch (e) {
+    console.warn("Không thể lưu cache lịch sử:", e);
   }
 }
 
-// --- 2. TẢI DỮ LIỆU TỪ GOOGLE SHEETS ---
+function loadMovesCache() {
+  try {
+    const raw = localStorage.getItem(MOVE_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeMove);
+  } catch (e) {
+    console.warn("Không thể đọc cache lịch sử:", e);
+    return [];
+  }
+}
+
+function mergeMoves(currentMoves, incomingMoves) {
+  const merged = [...currentMoves];
+  const seen = new Set(
+    currentMoves
+      .filter(m => hasStableTimestamp(m.timestamp))
+      .map(getMoveKey)
+  );
+
+  incomingMoves.forEach((m) => {
+    // Chỉ chống trùng khi bản ghi có timestamp ổn định.
+    // Nếu timestamp rỗng/placeholder thì vẫn giữ để tránh "mất" lịch sử.
+    if (!hasStableTimestamp(m.timestamp)) {
+      merged.push(m);
+      return;
+    }
+    const key = getMoveKey(m);
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(m);
+    }
+  });
+
+  return merged.slice(-500);
+}
+
+function reconcilePending(serverMoves) {
+  const serverCoreKeys = new Set(serverMoves.map(getMoveCoreKey));
+  state.pendingMoves = state.pendingMoves.filter(p => !serverCoreKeys.has(getMoveCoreKey(p)));
+}
+
 async function loadData() {
   try {
     const res = await fetch(API);
     const data = await res.json();
-    // Chuyển đổi dữ liệu tồn kho
-    state.items = (data.items || data).map(it => ({
-      sku: String(it.sku || it.SKU || "").trim(),
-      location: String(it.location || it.loc || "KHO").trim(),
-      stock: Number(it.toncuoi || it.stock || 0)
-    })).filter(it => it.sku !== "");
-    // Chuyển đổi dữ liệu lịch sử
-    state.moves = (data.moves || []).map(m => ({ ...m, sku: String(m.sku || "").trim() }));
+    
+    // Xử lý Items - Linh hoạt với tên thuộc tính từ Google Sheet
+    const rawItems = data.items || (Array.isArray(data) ? data : []);
+    state.items = rawItems
+      .filter(it => {
+        const s = it.sku || it.SKU || "";
+        return s.toString().trim() !== "";
+      })
+      .map(it => ({
+        sku: it.sku || it.SKU || "N/A",
+        name: it.name || it.ten || it.product || it.Sản_phẩm || "Chưa đặt tên",
+        location: it.location || it.loc || it.vitri || it.Vị_trí || "-",
+        stock: Number(it.toncuoi || it.stock || it.Tồn || 0)
+      }));
+    
+    // Xử lý Moves (Nhật ký): luôn merge để không bị mất khi API trả rỗng/tạm thời thiếu dữ liệu
+    const rawMoves = data.moves || data.logs || data.history || [];
+    const normalizedIncoming = Array.isArray(rawMoves) ? rawMoves.map(normalizeMove) : [];
+    state.moves = mergeMoves(state.moves, normalizedIncoming);
+    reconcilePending(normalizedIncoming);
+    saveMovesCache();
+    
     render();
-    updateChart();
-    document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString();
-  } catch (e) { console.error("Lỗi đồng bộ dữ liệu:", e); }
+    renderMoves();
+    document.getElementById("lastUpdate").textContent = new Date().toLocaleTimeString('vi-VN');
+  } catch (e) {
+    console.error("Lỗi kết nối:", e);
+    document.getElementById("lastUpdate").textContent = "Lỗi kết nối!";
+  }
 }
 
-// --- 3. HIỂN THỊ BẢNG VÀ KPI ---
 function render() {
   const q = document.getElementById("q").value.toLowerCase();
-  const filtered = state.items.filter(i => i.sku.toLowerCase().includes(q));
-  document.getElementById("rows").innerHTML = filtered.map(i => `<tr><td>${i.sku}</td><td>${i.location}</td><td><b>${i.stock}</b></td></tr>`).join("");
-  document.getElementById("kpi-sku").textContent = state.items.length;
-  document.getElementById("kpi-stock").textContent = state.items.reduce((a, b) => a + b.stock, 0);
-  document.getElementById("kpi-out").textContent = state.items.filter(i => i.stock <= 0).length;
-  renderMoves();
-}
+  const rows = document.getElementById("rows");
+  
+  const filtered = state.items.filter(i => 
+    i.sku.toLowerCase().includes(q) || i.name.toLowerCase().includes(q)
+  );
 
-// --- 4. HIỂN THỊ DANH SÁCH HOẠT ĐỘNG (BÊN PHẢI) ---
-function renderMoves() {
-  document.getElementById("moveList").innerHTML = state.moves.map(m => `
-    <div class="move-item" style="${m.status === 'pending' ? 'background:#fff9e6' : ''}">
-      <button class="btn-del-act" onclick="deleteItem('${m.sku}')">✖</button>
-      <small style="color:var(--muted)">${m.time || ''}</small><br>
-      <b>${m.sku}</b>: <span style="color:${m.type === 'IN' ? 'var(--good)' : 'var(--bad)'}">${m.type === 'IN' ? '▲' : '▼'} ${m.qty}</span>
-    </div>`).join("");
-}
-
-// --- 5. VẼ BIỂU ĐỒ (ĐÃ SỬA LỖI TREO KHI CHỌN NGÀY) ---
-function updateChart() {
-  const ctx = document.getElementById('locationChart').getContext('2d');
-  const selectedDate = document.getElementById('chartDate').value; 
-  if (myChart) { myChart.destroy(); } // Xóa biểu đồ cũ để tránh lỗi chồng hình
-  let locData = {};
-  let labelTitle = "Tổng Tồn Hiện Tại";
-
-  if (selectedDate) {
-    // Xử lý thông minh để nhận diện ngày (ví dụ 22/04/2026 hoặc 22/4/2026)
-    const [y, m, d] = selectedDate.split('-');
-    const d1 = `${d}/${m}/${y}`, d2 = `${parseInt(d)}/${parseInt(m)}/${y}`;
-    state.moves.forEach(move => {
-      const t = String(move.time || "");
-      if (t.includes(d1) || t.includes(d2) || t.includes(selectedDate)) {
-        const l = move.location || move.loc || "KHO";
-        const q = Number(move.qty || 0);
-        locData[l] = (locData[l] || 0) + ((move.type === 'IN' || move.type === 'NHẬP') ? q : -q);
-      }
-    });
-    labelTitle = "Biến Động Ngày: " + d2;
+  if (filtered.length === 0) {
+    rows.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Không tìm thấy dữ liệu</td></tr>`;
   } else {
-    // Mặc định: Tổng tồn kho theo kệ
-    state.items.forEach(it => { locData[it.location] = (locData[it.location] || 0) + it.stock; });
+    rows.innerHTML = filtered.map(i => `
+      <tr>
+        <td><b style="color:var(--accent)">${i.sku}</b></td>
+        <td>${i.name}</td>
+        <td><code style="background:#eee; padding:2px 4px;">${i.location}</code></td>
+        <td style="font-size: 15px;"><b>${i.stock}</b></td>
+        <td>
+          <span class="pill ${i.stock <= 0 ? 'hot' : (i.stock < 5 ? 'hot' : 'ok')}">
+            ${i.stock <= 0 ? 'HẾT HÀNG' : (i.stock < 5 ? 'SẮP HẾT' : 'SẴN SÀNG')}
+          </span>
+        </td>
+      </tr>
+    `).join("");
   }
 
-  myChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: Object.keys(locData).length ? Object.keys(locData) : ["N/A"],
-      datasets: [{
-        label: labelTitle, data: Object.values(locData),
-        backgroundColor: 'rgba(106, 91, 31, 0.7)', borderColor: '#6a5b1f', borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { datalabels: { anchor: 'end', align: 'top', color: '#1c1b17', font: { weight: 'bold' } } }
-    }
-  });
+  // Cập nhật KPI
+  document.getElementById("kpi-sku").textContent = state.items.length;
+  document.getElementById("kpi-stock").textContent = state.items.reduce((a, b) => a + b.stock, 0);
+  document.getElementById("kpi-low").textContent = state.items.filter(i => i.stock > 0 && i.stock < 5).length;
+  document.getElementById("kpi-out").textContent = state.items.filter(i => i.stock <= 0).length;
 }
 
-// --- 6. XÁC NHẬN GIAO DỊCH LÊN FILE GOOGLE ---
+function renderMoves() {
+  const moveList = document.getElementById("moveList");
+  const mergedForDisplay = mergeMoves(state.moves, state.pendingMoves);
+  if (!mergedForDisplay || mergedForDisplay.length === 0) {
+    moveList.innerHTML = `<div style="padding:40px; text-align:center; color:var(--muted);">Chưa có lịch sử hoạt động</div>`;
+    return;
+  }
+
+  const displayMoves = [...mergedForDisplay].reverse().slice(0, 30);
+
+  moveList.innerHTML = displayMoves.map(m => {
+    const isIn = m.type === "IN";
+    const typeLabel = isIn ? "NHẬP" : "XUẤT";
+    const typeClass = isIn ? "type-IN" : "type-OUT";
+    const symbol = isIn ? "+" : "-";
+    
+    return `
+      <div class="move-item">
+        <div class="move-meta">
+          <span>${m.timestamp || m.Thời_gian || 'Vừa xong'}</span>
+          <span>By: ${m.user || m.Người_nhập || '---'}</span>
+        </div>
+        <div class="move-body">
+          <span class="type-tag ${typeClass}">${typeLabel}</span>
+          <b>${m.sku || m.SKU}</b>
+          <span style="margin: 0 8px; opacity: 0.5;">→</span>
+          <b style="font-size:1.1em">${symbol}${m.qty || m.SL}</b> 
+          <small style="color:var(--muted); margin-left:8px;">@ ${m.location || m.Vị_trí || 'Kho'}</small>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 async function handleTransaction() {
-  const sku = document.getElementById("act-sku").value.trim();
-  const user = document.getElementById("act-user").value.trim();
-  const loc = document.getElementById("act-loc").value.trim();
+  const sku = document.getElementById("act-sku").value.trim().toUpperCase();
   const qty = document.getElementById("act-qty").value;
   const type = document.getElementById("act-type").value;
-  if(!sku || !qty || !user) return alert("Vui lòng nhập đủ Mã SKU, Người làm và Số lượng!");
-  
-  // Hiện thị ảo trước để người dùng thấy ngay kết quả
-  state.moves.unshift({ time: new Date().toLocaleString('vi-VN'), sku, user, qty, type, location: loc, status: 'pending' });
-  renderMoves();
-  
-  // Gửi lệnh POST thực tế lên Google Sheets
-  await fetch(API, { method: "POST", mode: "no-cors", body: JSON.stringify({ sku, user, location: loc, qty, type, action: "TRANSACTION" }) });
-  
-  // Xóa trắng ô nhập sau khi xác nhận
-  document.getElementById("act-sku").value = "";
-  document.getElementById("act-qty").value = "";
-  setTimeout(loadData, 2500); // Tải lại sau 2.5 giây để cập nhật số tồn mới
+  const loc = document.getElementById("act-loc").value.trim();
+  const user = document.getElementById("act-user").value.trim();
+
+  if(!sku || !qty || qty <= 0) {
+    alert("Vui lòng nhập đúng mã SKU và số lượng dương!");
+    return;
+  }
+
+  const btn = document.getElementById("btnSubmit");
+  btn.textContent = "ĐANG LƯU...";
+  btn.disabled = true;
+
+  try {
+    // 1. Gửi dữ liệu
+    await fetch(API, {
+      method: "POST",
+      mode: "no-cors",
+      cache: "no-cache",
+      body: JSON.stringify({ sku, qty, type, location: loc, user: user })
+    });
+
+    // 2. Cập nhật giao diện tạm thời (Optimistic UI) để người dùng thấy ngay
+    const tempMove = {
+      sku: sku,
+      qty: String(qty),
+      type: type,
+      location: loc || "---",
+      user: user || "Tôi",
+      timestamp: "Đang đợi xử lý..."
+    };
+    state.pendingMoves.push(normalizeMove(tempMove));
+    renderMoves();
+
+    // 3. Thông báo và Reset form
+    alert(`Thành công: ${type === "IN" ? "Nhập" : "Xuất"} ${qty} cho mã ${sku}`);
+    document.getElementById("act-sku").value = "";
+    document.getElementById("act-qty").value = "";
+    
+    // 4. Reload dữ liệu thật sau 2 giây
+    setTimeout(loadData, 2000);
+  } catch (e) {
+    alert("Lỗi: Không thể gửi dữ liệu. Vui lòng kiểm tra kết nối.");
+  } finally {
+    btn.textContent = "XÁC NHẬN";
+    btn.disabled = false;
+  }
 }
 
-// --- 7. XÓA SKU KHỎI DANH SÁCH ---
-async function deleteItem(sku) {
-  if (!confirm(`Bạn có chắc muốn xóa SKU ${sku}?`)) return;
-  await fetch(API, { method: "POST", mode: "no-cors", body: JSON.stringify({ sku, action: "DELETE" }) });
-  setTimeout(loadData, 2000);
-}
-
-// --- 8. TỰ ĐIỀN VỊ TRÍ KỆ KHI GÕ SKU ---
-function autoFillInfo() {
-  const sku = document.getElementById("act-sku").value.trim().toLowerCase();
-  const item = state.items.find(i => i.sku.toLowerCase() === sku);
+// Tự động điền vị trí khi nhập SKU
+document.getElementById("act-sku").addEventListener("input", (e) => {
+  const val = e.target.value.trim().toUpperCase();
+  const item = state.items.find(i => i.sku.toUpperCase() === val);
   if (item) document.getElementById("act-loc").value = item.location;
-}
+});
 
-// KHỞI CHẠY: Lắng nghe tìm kiếm, tải dữ liệu lần đầu và hẹn giờ tự cập nhật
+// Tìm kiếm nhanh
 document.getElementById("q").addEventListener("input", render);
+
+// Khởi chạy
+state.moves = loadMovesCache();
 loadData();
-setInterval(loadData, 60000); // Tự động làm mới dữ liệu sau mỗi 60 giây
+setInterval(loadData, 60000); // Tự động làm mới mỗi phút
 </script>
 </body></html>

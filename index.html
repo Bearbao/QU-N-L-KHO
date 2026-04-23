@@ -2,10 +2,11 @@
 <html lang="vi"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quản lý kho Plus · v2.0</title>
+<title>Quản lý kho Plus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Instrument+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<script src="https://unpkg.com/html5-qrcode"></script>
 <style>
   :root {
     --paper: #f0f2f4;
@@ -78,6 +79,17 @@
   }
   .btn-submit:hover { background: var(--accent-2); }
   .btn-submit:disabled { background: var(--muted); cursor: not-allowed; }
+  .btn-scan {
+    background: white; color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 10px 18px;
+    cursor: pointer;
+    font-family: "JetBrains Mono";
+    font-weight: 700;
+    transition: 0.2s;
+    white-space: nowrap;
+  }
+  .btn-scan:hover { background: rgba(255,255,255,0.7); }
 
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 10px solid var(--rule); }
   .kpi { padding: 22px; border-right: 1px solid var(--rule); background: rgba(255,255,255,0.2); }
@@ -101,6 +113,29 @@
   .type-IN { color: var(--good); }
   .type-OUT { color: var(--bad); }
 
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+  .modal {
+    width: min(820px, 100%);
+    background: rgba(255,255,255,0.92);
+    border: 1px solid var(--rule);
+    backdrop-filter: blur(10px);
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+    font-family: "JetBrains Mono";
+  }
+  .modal-body { padding: 14px; }
+  #barcode-reader { width: 100%; }
+
   @media (max-width: 960px) {
     .quick-action { grid-template-columns: 1fr; }
     .panels { grid-template-columns: 1fr; }
@@ -110,6 +145,21 @@
 </head>
 <body>
 <div class="grain"></div>
+
+<div id="scanBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Quét barcode">
+  <div class="modal">
+    <div class="modal-head">
+      <span>SCAN BARCODE</span>
+      <button class="btn-scan" type="button" onclick="closeScan()">ĐÓNG</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:'JetBrains Mono'; font-size: 12px; color: var(--muted); margin-bottom: 10px;">
+        Cho camera thấy rõ mã vạch. Khi quét được sẽ tự điền vào ô SKU.
+      </div>
+      <div id="barcode-reader"></div>
+    </div>
+  </div>
+</div>
 
 <header class="top">
   <div class="brand">
@@ -136,6 +186,7 @@
         <option value="OUT">XUẤT KHO (-)</option>
       </select>
       <button class="btn-submit" id="btnSubmit" onclick="handleTransaction()">XÁC NHẬN</button>
+      <button class="btn-scan" id="btnScan" type="button" onclick="openScan()">SCAN</button>
     </div>
   </section>
 
@@ -196,8 +247,10 @@
 <script>
 const API = "https://script.google.com/macros/s/AKfycbyRIsCr-6vHgoJEf0m2ikHfcxjHz0LfkQ91Q8qtEoOj6owdi-44HVxVaF6AD6HIM_aA/exec";
 const MOVE_CACHE_KEY = "warehouse_moves_cache_v1";
+const PENDING_CACHE_KEY = "warehouse_pending_moves_v1";
 
 let state = { items: [], moves: [], pendingMoves: [] };
+let scanner = null;
 
 function normalizeMove(raw) {
   return {
@@ -233,6 +286,14 @@ function saveMovesCache() {
   }
 }
 
+function savePendingCache() {
+  try {
+    localStorage.setItem(PENDING_CACHE_KEY, JSON.stringify(state.pendingMoves.slice(-100)));
+  } catch (e) {
+    console.warn("Không thể lưu cache pending:", e);
+  }
+}
+
 function loadMovesCache() {
   try {
     const raw = localStorage.getItem(MOVE_CACHE_KEY);
@@ -242,6 +303,19 @@ function loadMovesCache() {
     return parsed.map(normalizeMove);
   } catch (e) {
     console.warn("Không thể đọc cache lịch sử:", e);
+    return [];
+  }
+}
+
+function loadPendingCache() {
+  try {
+    const raw = localStorage.getItem(PENDING_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeMove);
+  } catch (e) {
+    console.warn("Không thể đọc cache pending:", e);
     return [];
   }
 }
@@ -274,6 +348,7 @@ function mergeMoves(currentMoves, incomingMoves) {
 function reconcilePending(serverMoves) {
   const serverCoreKeys = new Set(serverMoves.map(getMoveCoreKey));
   state.pendingMoves = state.pendingMoves.filter(p => !serverCoreKeys.has(getMoveCoreKey(p)));
+  savePendingCache();
 }
 
 async function loadData() {
@@ -413,6 +488,7 @@ async function handleTransaction() {
       timestamp: "Đang đợi xử lý..."
     };
     state.pendingMoves.push(normalizeMove(tempMove));
+    savePendingCache();
     renderMoves();
 
     // 3. Thông báo và Reset form
@@ -430,6 +506,52 @@ async function handleTransaction() {
   }
 }
 
+function openScan() {
+  const backdrop = document.getElementById("scanBackdrop");
+  backdrop.style.display = "flex";
+
+  const targetId = "barcode-reader";
+  const config = {
+    fps: 12,
+    qrbox: { width: 300, height: 160 },
+    rememberLastUsedCamera: true,
+    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+  };
+
+  if (!scanner) scanner = new Html5Qrcode(targetId, /* verbose */ false);
+
+  Html5Qrcode.getCameras().then((devices) => {
+    if (!devices || devices.length === 0) throw new Error("No camera");
+    const camId = devices[0].id;
+    return scanner.start(
+      camId,
+      config,
+      (decodedText) => {
+        const skuInput = document.getElementById("act-sku");
+        skuInput.value = String(decodedText || "").trim().toUpperCase();
+        skuInput.dispatchEvent(new Event("input", { bubbles: true }));
+        closeScan();
+      }
+    );
+  }).catch((e) => {
+    console.error("Không thể mở camera:", e);
+    alert("Không thể mở camera để scan. Vui lòng kiểm tra quyền camera/trình duyệt.");
+    closeScan();
+  });
+}
+
+function closeScan() {
+  const backdrop = document.getElementById("scanBackdrop");
+  backdrop.style.display = "none";
+  if (scanner && scanner.isScanning) {
+    scanner.stop().catch(() => {}).finally(() => {
+      try { scanner.clear(); } catch (_) {}
+    });
+  } else {
+    try { if (scanner) scanner.clear(); } catch (_) {}
+  }
+}
+
 // Tự động điền vị trí khi nhập SKU
 document.getElementById("act-sku").addEventListener("input", (e) => {
   const val = e.target.value.trim().toUpperCase();
@@ -442,6 +564,7 @@ document.getElementById("q").addEventListener("input", render);
 
 // Khởi chạy
 state.moves = loadMovesCache();
+state.pendingMoves = loadPendingCache();
 loadData();
 setInterval(loadData, 60000); // Tự động làm mới mỗi phút
 </script>

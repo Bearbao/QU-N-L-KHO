@@ -514,7 +514,8 @@ function openScan() {
   const config = {
     fps: 12,
     qrbox: { width: 300, height: 160 },
-    rememberLastUsedCamera: true,
+    // Luôn chọn lại camera để tránh bị dính camera trước từ lần quét cũ.
+    rememberLastUsedCamera: false,
     supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
   };
 
@@ -533,24 +534,19 @@ function openScan() {
     closeScan();
   };
 
-  // Ưu tiên camera sau trên điện thoại.
-  scanner.start(
-    { facingMode: { exact: "environment" } },
-    config,
-    onScanSuccess
-  ).catch(() => {
+  Html5Qrcode.getCameras().then((devices) => {
+    if (!devices || devices.length === 0) throw new Error("No camera");
+    const rearCam = devices.find((d) => /back|rear|environment|sau/i.test(d.label || ""));
+    // Nhiều thiết bị trả camera sau ở vị trí cuối danh sách.
+    const preferredCam = rearCam || devices[devices.length - 1];
+    return scanner.start(preferredCam.id, config, onScanSuccess);
+  }).catch(() => {
+    // Fallback cuối cùng nếu trình duyệt không cung cấp danh sách camera rõ ràng.
     scanner.start(
-      { facingMode: "environment" },
+      { facingMode: { exact: "environment" } },
       config,
       onScanSuccess
-    ).catch(() => {
-      Html5Qrcode.getCameras().then((devices) => {
-        if (!devices || devices.length === 0) throw new Error("No camera");
-        const rearCam = devices.find((d) => /back|rear|environment|sau/i.test(d.label || ""));
-        const camId = (rearCam || devices[0]).id;
-        return scanner.start(camId, config, onScanSuccess);
-      }).catch(onScanError);
-    });
+    ).catch(onScanError);
   });
 }
 
